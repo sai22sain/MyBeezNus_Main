@@ -1,59 +1,139 @@
-import {
-  collection, doc, addDoc, getDoc, getDocs, updateDoc,
-  deleteDoc, query, where, orderBy
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 
-// Helper to get user's collection reference
-const userCol = (uid, col) => collection(db, 'users', uid, col);
-const userDoc = (uid, col, id) => doc(db, 'users', uid, col, id);
+// Row mappers: DB (snake_case) -> app (camelCase)
+const toCustomer = (r) => r && {
+  id: r.id,
+  customerId: r.customer_id,
+  name: r.name,
+  mobile: r.mobile,
+  dob: r.dob,
+  gender: r.gender,
+  createdAt: r.created_at,
+};
+
+const toItem = (r, catName = '') => r && {
+  id: r.id,
+  categoryId: r.category_id,
+  categoryName: catName,
+  name: r.name,
+  price: Number(r.price),
+  tax: Number(r.tax),
+  isActive: r.is_active,
+  createdAt: r.created_at,
+};
+
+const toCategory = (r) => r && { id: r.id, name: r.name };
+
+const toBill = (r) => r && {
+  id: r.id,
+  billNumber: r.bill_number,
+  customerId: r.customer_id,
+  customerName: r.customer_name,
+  items: r.items || [],
+  discount: Number(r.discount),
+  paymentMode: r.payment_mode,
+  totalAmount: Number(r.total_amount),
+  tax: Number(r.tax),
+  finalAmount: Number(r.final_amount),
+  createdAt: r.created_at,
+};
 
 // ─── CUSTOMERS ───────────────────────────────────────────────
 export const customerAPI = {
   getAll: async (uid) => {
-    const snap = await getDocs(query(userCol(uid, 'customers'), orderBy('createdAt', 'desc')));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toCustomer);
   },
   search: async (uid, queryStr) => {
-    const snap = await getDocs(userCol(uid, 'customers'));
     const q = queryStr.toLowerCase();
-    return snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(c => c.name?.toLowerCase().includes(q) || c.mobile?.includes(q));
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', uid)
+      .or(`name.ilike.%${q}%,mobile.ilike.%${q}%`);
+    if (error) throw error;
+    return (data || []).map(toCustomer);
   },
   getById: async (uid, id) => {
-    const snap = await getDoc(userDoc(uid, 'customers', id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return toCustomer(data);
   },
   create: async (uid, data) => {
-    // Generate customer ID
-    const snap = await getDocs(userCol(uid, 'customers'));
-    const count = snap.size + 1;
-    const customerId = `CUST-${String(count).padStart(5, '0')}`;
-    const ref = await addDoc(userCol(uid, 'customers'), {
-      ...data,
-      customerId,
-      createdAt: new Date().toISOString()
-    });
-    return { id: ref.id, customerId };
+    // Generate customer ID from the profile's customer prefix + count
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('customer_prefix')
+      .eq('user_id', uid)
+      .maybeSingle();
+    const prefix = (profile?.customer_prefix || 'CUST').toUpperCase();
+    const { count } = await supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', uid);
+    const customerId = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
+    const { data: row, error } = await supabase
+      .from('customers')
+      .insert({
+        user_id: uid,
+        customer_id: customerId,
+        name: data.name || '',
+        mobile: data.mobile || '',
+        dob: data.dob || '',
+        gender: data.gender || '',
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { id: row.id, customerId };
   },
   update: async (uid, id, data) => {
-    await updateDoc(userDoc(uid, 'customers', id), data);
+    const { error } = await supabase
+      .from('customers')
+      .update({ name: data.name, mobile: data.mobile, dob: data.dob, gender: data.gender })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   delete: async (uid, id) => {
-    await deleteDoc(userDoc(uid, 'customers', id));
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   getHistory: async (uid, customerId) => {
-    const snap = await getDocs(query(userCol(uid, 'bills'), where('customerId', '==', customerId), orderBy('createdAt', 'desc')));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const { data, error } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toBill);
   },
   getBirthdays: async (uid) => {
     const today = new Date();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    const snap = await getDocs(userCol(uid, 'customers'));
-    return snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', uid);
+    if (error) throw error;
+    return (data || [])
+      .map(toCustomer)
       .filter(c => c.dob && c.dob.endsWith(`-${mm}-${dd}`));
   }
 };
@@ -61,71 +141,163 @@ export const customerAPI = {
 // ─── ITEMS ───────────────────────────────────────────────────
 export const itemAPI = {
   getAll: async (uid) => {
-    const [itemsSnap, catsSnap] = await Promise.all([
-      getDocs(userCol(uid, 'items')),
-      getDocs(userCol(uid, 'categories'))
+    const [{ data: items, error: itemsErr }, { data: cats, error: catsErr }] = await Promise.all([
+      supabase.from('items').select('*').eq('user_id', uid),
+      supabase.from('categories').select('*').eq('user_id', uid),
     ]);
-    const cats = {};
-    catsSnap.docs.forEach(d => { cats[d.id] = d.data().name; });
-    return itemsSnap.docs.map(d => ({
-      id: d.id, ...d.data(),
-      categoryName: cats[d.data().categoryId] || ''
-    }));
+    if (itemsErr) throw itemsErr;
+    if (catsErr) throw catsErr;
+    const catNames = {};
+    (cats || []).forEach(c => { catNames[c.id] = c.name; });
+    return (items || []).map(r => toItem(r, catNames[r.category_id] || ''));
   },
   getActive: async (uid) => {
     const all = await itemAPI.getAll(uid);
     return all.filter(i => i.isActive);
   },
   create: async (uid, data) => {
-    await addDoc(userCol(uid, 'items'), { ...data, createdAt: new Date().toISOString() });
+    const { error } = await supabase.from('items').insert({
+      user_id: uid,
+      name: data.name,
+      category_id: data.categoryId || null,
+      price: data.price || 0,
+      tax: data.tax || 0,
+      is_active: data.isActive !== false,
+    });
+    if (error) throw error;
   },
   update: async (uid, id, data) => {
-    await updateDoc(userDoc(uid, 'items', id), data);
+    const { error } = await supabase
+      .from('items')
+      .update({
+        name: data.name,
+        category_id: data.categoryId || null,
+        price: data.price || 0,
+        tax: data.tax || 0,
+        is_active: data.isActive !== false,
+      })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   delete: async (uid, id) => {
-    await deleteDoc(userDoc(uid, 'items', id));
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   toggleStatus: async (uid, id, current) => {
-    await updateDoc(userDoc(uid, 'items', id), { isActive: !current });
+    const { error } = await supabase
+      .from('items')
+      .update({ is_active: !current })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   getCategories: async (uid) => {
-    const snap = await getDocs(userCol(uid, 'categories'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', uid);
+    if (error) throw error;
+    return (data || []).map(toCategory);
   },
   createCategory: async (uid, name) => {
-    await addDoc(userCol(uid, 'categories'), { name });
+    const { data, error } = await supabase
+      .from('categories')
+      .insert({ user_id: uid, name })
+      .select()
+      .single();
+    if (error) throw error;
+    return toCategory(data);
   },
   deleteCategory: async (uid, id) => {
-    await deleteDoc(userDoc(uid, 'categories', id));
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   }
 };
 
 // ─── BILLS ───────────────────────────────────────────────────
 export const billAPI = {
   getAll: async (uid) => {
-    const snap = await getDocs(query(userCol(uid, 'bills'), orderBy('createdAt', 'desc')));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const { data, error } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toBill);
   },
   getById: async (uid, id) => {
-    const snap = await getDoc(userDoc(uid, 'bills', id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const { data, error } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return toBill(data);
   },
   create: async (uid, data) => {
-    const snap = await getDocs(userCol(uid, 'bills'));
-    const count = snap.size + 1;
-    const billNumber = `BILL-${String(count).padStart(5, '0')}`;
-    const ref = await addDoc(userCol(uid, 'bills'), {
-      ...data,
-      billNumber,
-      createdAt: new Date().toISOString()
-    });
-    return { id: ref.id, billNumber };
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('bill_prefix')
+      .eq('user_id', uid)
+      .maybeSingle();
+    const prefix = (profile?.bill_prefix || 'BILL').toUpperCase();
+    const { count } = await supabase
+      .from('bills')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', uid);
+    const billNumber = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
+    const { data: row, error } = await supabase
+      .from('bills')
+      .insert({
+        user_id: uid,
+        bill_number: billNumber,
+        customer_id: data.customerId || null,
+        customer_name: data.customerName || '',
+        items: data.items || [],
+        discount: data.discount || 0,
+        payment_mode: data.paymentMode || 'Cash',
+        total_amount: data.totalAmount || 0,
+        tax: data.tax || 0,
+        final_amount: data.finalAmount || 0,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { id: row.id, billNumber };
   },
   update: async (uid, id, data) => {
-    await updateDoc(userDoc(uid, 'bills', id), data);
+    const { error } = await supabase
+      .from('bills')
+      .update({
+        customer_name: data.customerName,
+        items: data.items,
+        discount: data.discount,
+        payment_mode: data.paymentMode,
+        total_amount: data.totalAmount,
+        tax: data.tax,
+        final_amount: data.finalAmount,
+      })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   },
   delete: async (uid, id) => {
-    await deleteDoc(userDoc(uid, 'bills', id));
+    const { error } = await supabase
+      .from('bills')
+      .delete()
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw error;
   }
 };
 
@@ -136,33 +308,35 @@ export const reportAPI = {
     const mm = String(new Date().getMonth() + 1).padStart(2, '0');
     const yyyy = String(new Date().getFullYear());
 
-    const [billsSnap, customersSnap, itemsSnap] = await Promise.all([
-      getDocs(userCol(uid, 'bills')),
-      getDocs(userCol(uid, 'customers')),
-      getDocs(query(userCol(uid, 'items'), where('isActive', '==', true)))
+    const [{ data: bills, error: billsErr }, { count: custCount }, { count: activeItems }] = await Promise.all([
+      supabase.from('bills').select('final_amount,created_at').eq('user_id', uid),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('items').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('is_active', true),
     ]);
+    if (billsErr) throw billsErr;
 
-    const bills = billsSnap.docs.map(d => d.data());
-    const todayBills = bills.filter(b => b.createdAt?.split('T')[0] === today);
-    const monthBills = bills.filter(b => {
-      const d = b.createdAt?.split('T')[0] || '';
-      return d.startsWith(`${yyyy}-${mm}`);
-    });
+    const dayOf = (iso) => (iso || '').split('T')[0];
+    const todayBills = (bills || []).filter(b => dayOf(b.created_at) === today);
+    const monthBills = (bills || []).filter(b => dayOf(b.created_at).startsWith(`${yyyy}-${mm}`));
 
     return {
       today_bills: todayBills.length,
-      today_revenue: todayBills.reduce((s, b) => s + (b.finalAmount || 0), 0),
-      month_revenue: monthBills.reduce((s, b) => s + (b.finalAmount || 0), 0),
-      total_customers: customersSnap.size,
-      active_items: itemsSnap.size
+      today_revenue: todayBills.reduce((s, b) => s + Number(b.final_amount || 0), 0),
+      month_revenue: monthBills.reduce((s, b) => s + Number(b.final_amount || 0), 0),
+      total_customers: custCount || 0,
+      active_items: activeItems || 0
     };
   },
 
   getDailyRevenue: async (uid, date) => {
     const target = date || new Date().toLocaleDateString('en-CA');
-    const snap = await getDocs(userCol(uid, 'bills'));
-    const bills = snap.docs.map(d => d.data()).filter(b => b.createdAt?.split('T')[0] === target);
-    const total = bills.reduce((s, b) => s + (b.finalAmount || 0), 0);
+    const { data, error } = await supabase
+      .from('bills')
+      .select('final_amount,created_at')
+      .eq('user_id', uid);
+    if (error) throw error;
+    const bills = (data || []).filter(b => (b.created_at || '').split('T')[0] === target);
+    const total = bills.reduce((s, b) => s + Number(b.final_amount || 0), 0);
     return {
       total_bills: bills.length,
       total_revenue: total,
@@ -173,12 +347,13 @@ export const reportAPI = {
   getMonthlyRevenue: async (uid, month, year) => {
     const mm = String(month).padStart(2, '0');
     const yyyy = String(year);
-    const snap = await getDocs(userCol(uid, 'bills'));
-    const bills = snap.docs.map(d => d.data()).filter(b => {
-      const d = b.createdAt?.split('T')[0] || '';
-      return d.startsWith(`${yyyy}-${mm}`);
-    });
-    const total = bills.reduce((s, b) => s + (b.finalAmount || 0), 0);
+    const { data, error } = await supabase
+      .from('bills')
+      .select('final_amount,created_at')
+      .eq('user_id', uid);
+    if (error) throw error;
+    const bills = (data || []).filter(b => ((b.created_at || '').split('T')[0] || '').startsWith(`${yyyy}-${mm}`));
+    const total = bills.reduce((s, b) => s + Number(b.final_amount || 0), 0);
     return {
       total_bills: bills.length,
       total_revenue: total,
@@ -187,11 +362,14 @@ export const reportAPI = {
   },
 
   getTopItems: async (uid) => {
-    const snap = await getDocs(userCol(uid, 'bills'));
+    const { data, error } = await supabase
+      .from('bills')
+      .select('items')
+      .eq('user_id', uid);
+    if (error) throw error;
     const counts = {};
-    snap.docs.forEach(d => {
-      const bill = d.data();
-      (bill.items || []).forEach(item => {
+    (data || []).forEach(b => {
+      (b.items || []).forEach(item => {
         if (!counts[item.name]) counts[item.name] = { item_name: item.name, times_sold: 0, total_quantity: 0, total_revenue: 0 };
         counts[item.name].times_sold += 1;
         counts[item.name].total_quantity += item.quantity;
@@ -202,22 +380,27 @@ export const reportAPI = {
   },
 
   getRepeatCustomers: async (uid) => {
-    const [billsSnap, customersSnap] = await Promise.all([
-      getDocs(userCol(uid, 'bills')),
-      getDocs(userCol(uid, 'customers'))
+    const [{ data: bills, error: billsErr }, { data: customers, error: custErr }] = await Promise.all([
+      supabase.from('bills').select('customer_id,final_amount,created_at').eq('user_id', uid),
+      supabase.from('customers').select('*').eq('user_id', uid),
     ]);
-    const customers = {};
-    customersSnap.docs.forEach(d => { customers[d.id] = { id: d.id, ...d.data(), visit_count: 0, total_spent: 0, last_visit: null }; });
-    billsSnap.docs.forEach(d => {
-      const b = d.data();
-      if (customers[b.customerId]) {
-        customers[b.customerId].visit_count += 1;
-        customers[b.customerId].total_spent += b.finalAmount || 0;
-        if (!customers[b.customerId].last_visit || b.createdAt > customers[b.customerId].last_visit) {
-          customers[b.customerId].last_visit = b.createdAt;
+    if (billsErr) throw billsErr;
+    if (custErr) throw custErr;
+    const map = {};
+    (customers || []).forEach(r => {
+      const c = toCustomer(r);
+      map[c.id] = { ...c, visit_count: 0, total_spent: 0, last_visit: null };
+    });
+    (bills || []).forEach(b => {
+      const c = map[b.customer_id];
+      if (c) {
+        c.visit_count += 1;
+        c.total_spent += Number(b.final_amount || 0);
+        if (!c.last_visit || b.created_at > c.last_visit) {
+          c.last_visit = b.created_at;
         }
       }
     });
-    return Object.values(customers).filter(c => c.visit_count > 1).sort((a, b) => b.visit_count - a.visit_count);
+    return Object.values(map).filter(c => c.visit_count > 1).sort((a, b) => b.visit_count - a.visit_count);
   }
 };

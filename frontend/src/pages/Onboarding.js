@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
 const BUSINESS_TYPES = [
@@ -105,35 +104,38 @@ function Onboarding() {
       const uid = user.uid;
       const template = BUSINESS_TEMPLATES[businessType] || BUSINESS_TEMPLATES.general;
 
-      // Save business profile
+      // Save business profile (AuthContext.setProfile persists to Supabase)
       const profileData = {
         ...businessData,
         businessType,
         email: user.email,
-        createdAt: new Date().toISOString()
       };
-      await setDoc(doc(db, 'users', uid, 'profile', 'business'), profileData);
+      await setProfile(profileData);
 
       // Save default categories, keep id -> name map for items
       const catIdByName = {};
       for (const cat of template.categories) {
-        const ref = await addDoc(collection(db, 'users', uid, 'categories'), { name: cat });
-        catIdByName[cat] = ref.id;
+        const { data, error } = await supabase
+          .from('categories')
+          .insert({ user_id: uid, name: cat })
+          .select()
+          .single();
+        if (error) throw error;
+        catIdByName[cat] = data.id;
       }
 
       // Save default items
       for (const item of template.items) {
-        await addDoc(collection(db, 'users', uid, 'items'), {
+        const { error } = await supabase.from('items').insert({
+          user_id: uid,
           name: item.name,
-          categoryId: catIdByName[item.category] || '',
+          category_id: catIdByName[item.category] || null,
           price: item.price,
           tax: item.tax || 0,
-          isActive: true,
-          createdAt: new Date().toISOString()
+          is_active: true,
         });
+        if (error) throw error;
       }
-
-      setProfile(profileData);
     } catch (err) {
       console.error('Onboarding error:', err);
     }

@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
 const SECTION = ({ icon, title, subtitle, children }) => (
@@ -36,23 +34,19 @@ function Settings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      const snap = await getDoc(doc(db, 'users', user.uid, 'profile', 'business'));
-      if (snap.exists()) {
-        setForm(prev => ({ ...prev, ...snap.data() }));
-      }
-      setLoading(false);
-    };
-    load();
-  }, [user.uid]);
+    // Profile is loaded by AuthContext; sync it into the form
+    if (profile) {
+      setForm(prev => ({ ...prev, ...profile }));
+    }
+    setLoading(false);
+  }, [profile]);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'users', user.uid, 'profile', 'business'), form, { merge: true });
-      setProfile({ ...profile, ...form });
+      await setProfile({ ...profile, ...form });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {

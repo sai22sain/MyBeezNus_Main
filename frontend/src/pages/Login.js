@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { supabase } from '../supabase';
 import Logo from '../components/Logo';
 
 function Login() {
@@ -11,12 +10,17 @@ function Login() {
     setLoading(true);
     setError('');
     try {
-      await signInWithPopup(auth, googleProvider);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      // Redirects to Google; session resumes on return via AuthContext
     } catch (err) {
-      console.error('Sign-in error:', err?.code, err?.message);
-      setError(`Sign-in failed (${err?.code || 'unknown'}). ${err?.message || 'Please try again.'}`);
+      console.error('Sign-in error:', err?.code || err?.status, err?.message);
+      setError(`Sign-in failed (${err?.code || err?.status || 'unknown'}). ${err?.message || 'Please try again.'}`);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
