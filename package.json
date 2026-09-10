@@ -1,0 +1,16 @@
+{
+  "name": "salon-management-app",
+  "version": "1.0.0",
+  "description": "Complete Salon Billing and Customer Management Application",
+  "scripts": {
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev-backend": "cd backend && npm start",
+    "dev-frontend": "cd frontend && npm start",
+    "seed": "cd backend && node seed.js",
+    "build": "cd frontend && npm run build",
+    "production": "cd backend && node server.production.js"
+  },
+  "keywords": ["salon", "billing", "customer-management", "whatsapp", "chromeos"],
+  "author": "Your Name",
+  "license": "MIT"
+}

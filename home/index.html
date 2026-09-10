@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#14102e" />
+    <meta name="description" content="MyBeezNus - Simplified tools for your business. Smart billing, customer management, and more." />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <title>MyBeezNus - Simplified Tools</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+        background: #14102e;
+        color: #ffffff;
+      }
+      video.bg {
+        position: fixed;
+        inset: 0; width: 100%; height: 100%;
+        object-fit: cover; z-index: 0;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(ellipse 70% 55% at 50% 35%, rgba(26,20,60,0.55), rgba(20,16,46,0.85) 70%);
+        z-index: 1;
+      }
+      .page { position: relative; z-index: 2; min-height: 150vh; display: flex; flex-direction: column; align-items: center; padding: 0 24px; }
+      nav { width: 100%; max-width: 1100px; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; background: rgba(20,16,46,0.55); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(99,102,241,0.25); }
+      nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -0.3px; }
+      nav .brand img { width: 38px; height: 38px; border-radius: 10px; }
+      nav .cta-buy { background: #6366f1; color: #fff; border: none; border-radius: 10px; padding: 10px 18px; font-weight: 600; font-size: 14px; cursor: pointer; }
+      nav .cta-buy:hover { background: #818cf8; }
+      .hero { width: 100%; max-width: 720px; text-align: center; padding: 90px 24px 40px; }
+      .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(99,102,241,0.18); color: #a78bfa; border: 1px solid rgba(99,102,241,0.4); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+      .hero h1 { font-size: 52px; font-weight: 900; letter-spacing: -1.2px; margin-top: 22px; line-height: 1.08; background: linear-gradient(90deg, #fff, #c7d2fe, #a78bfa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #fff; }
+      .hero p { font-size: 19px; color: #c7d2fe; font-weight: 500; margin-top: 20px; max-width: 540px; text-align: center; }
+      .cta-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 34px; }
+      .btn-open { background: #6366f1; color: #fff; border: none; border-radius: 12px; padding: 14px 26px; font-size: 16px; font-weight: 700; cursor: pointer; transition: transform .15s ease; }
+      .btn-open:hover { transform: translateY(-2px); }
+      .btn-sec { background: rgba(255,255,255,0.12); color: #e6e9ff; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 14px 26px; font-size: 16px; font-weight: 600; cursor: pointer; }
+      .btn-sec:hover { background: rgba(255,255,255,0.2); }
+      #apps { width: 100%; max-width: 1000px; padding: 30px 24px 60px; }
+      #apps h2 { font-size: 30px; font-weight: 800; text-align: center; margin-bottom: 34px; background: linear-gradient(90deg, #fff, #c7d2fe); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #fff; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; justify-content: center; }
+      .card { background: rgba(26,22,66,0.72); border: 1px solid rgba(99,102,241,0.3); border-radius: 18px; padding: 24px; backdrop-filter: blur(6px); transition: transform .15s ease, border-color .15s ease; cursor: pointer; text-align: left; }
+      .card:hover { transform: translateY(-4px); border-color: #818cf8; }
+      .card .icon { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 14px; background: linear-gradient(135deg, #6366f1, #a78bfa); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 6px 18px rgba(99,102,241,0.35); }
+      .card h3 { font-size: 20px; font-weight: 700; color: #fff; }
+      .card p { font-size: 14px; color: #c7d2fe; line-height: 1.5; margin-top: 8px; }
+      .card .link { margin-top: 14px; font-size: 14px; font-weight: 600; color: #a78bfa; }
+      footer { width: 100%; max-width: 1100px; text-align: center; padding: 40px 24px; color: #7c7fa8; font-size: 13px; }
+      @media (max-width: 640px) { .hero h1 { font-size: 34px; } .hero { padding: 50px 20px 30px; } .hero p { font-size: 16px; } #apps h2 { font-size: 24px; } }
+    </style>
+  </head>
+<body>
+    <video class="bg" autoplay muted loop playsinline aria-hidden="true">
+      <source src="/Bees_honeycomb.mp4" type="video/mp4" />
+    </video>
+    <div class="overlay"></div>
+
+    <div class="page">
+      <nav>
+        <div class="brand">
+          <img src="/logo.svg?v=2" alt="MyBeezNus" />
+          <span>MyBeezNus</span>
+        </div>
+        <button class="cta-buy" onclick="window.open('https://mybeeznus-billing.web.app','_blank')">Open Billing</button>
+      </nav>
+
+      <section class="hero">
+        <span class="badge">✦ Simplified Tools for Modern Business</span>
+        <h1>Everything you need to run your business, in one simple suite.</h1>
+        <p>From smart billing to customer management — MyBeezNus gives growing businesses simple, powerful tools without the clutter.</p>
+        <div class="cta-row">
+          <button class="btn-open" onclick="window.open('https://mybeeznus-billing.web.app','_blank')">Start Billing Now</button>
+          <button class="btn-sec" onclick="document.getElementById('apps').scrollIntoView({behavior:'smooth'})">Explore Apps</button>
+        </div>
+      </section>
+
+      <section id="apps">
+        <h2>Our Apps</h2>
+        <div class="grid">
+          <div class="card" onclick="window.open('https://mybeeznus-billing.web.app','_blank')">
+            <div class="icon"><span>₹</span></div>
+            <h3>Billing</h3>
+            <p>Create invoices, manage customers &amp; items, send bills on WhatsApp. Works for any business type.</p>
+            <div class="link">Open Billing →</div>
+          </div>
+          <div class="card" onclick="this.style.opacity=0.6">
+            <div class="icon"><span>＋</span></div>
+            <h3>More Tools</h3>
+            <p>New MyBeezNus apps are coming soon. This suite grows as your business does.</p>
+            <div class="link">Coming soon</div>
+          </div>
+        </div>
+      </section>
+
+      <footer>© <span id="yr"></span> MyBeezNus · mybeeznus.com · Simplified Tools for Business</footer>
+    </div>
+
+    <script>
+      document.getElementById('yr').textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>
