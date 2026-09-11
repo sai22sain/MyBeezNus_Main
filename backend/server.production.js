@@ -21,6 +21,9 @@ app.use('/api/items', require('./src/routes/items'));
 app.use('/api/bills', require('./src/routes/bills'));
 app.use('/api/reports', require('./src/routes/reports'));
 
+// Account management (delete account + all data)
+app.use('/api/account', require('./src/routes/account'));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'MyBills API is running' });

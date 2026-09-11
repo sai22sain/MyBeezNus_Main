@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const SECTION = ({ icon, title, subtitle, children }) => (
   <div className="settings-section">
@@ -55,9 +58,30 @@ function Settings() {
     setSaving(false);
   };
 
-  const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure? This will sign you out. To fully delete your account, contact support.')) {
-      logout();
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure? This will permanently delete your account and ALL data (bills, customers, items, settings). This cannot be undone.')) {
+      return;
+    }
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch(`${API_URL}/api/account/delete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Server returned ${res.status}`);
+      }
+      // Endpoint deleted auth user + all data; sign out locally.
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('[handleDeleteAccount] error:', err);
+      alert('Could not delete account: ' + err.message);
     }
   };
 
