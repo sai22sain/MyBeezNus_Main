@@ -66,7 +66,10 @@ function NewBill() {
       setSelectedCustomer({ ...newCustomer, id: result.id, customerId: result.customerId });
       setShowCustomerModal(false);
       setMessage({ type: 'success', text: 'Customer added!' });
-    } catch { setMessage({ type: 'error', text: 'Error adding customer' }); }
+    } catch (e) {
+      console.error('Add customer failed:', e);
+      setMessage({ type: 'error', text: `Error adding customer${e?.message ? ` — ${e.message}` : ''}` });
+    }
   };
 
   const createBill = async () => {

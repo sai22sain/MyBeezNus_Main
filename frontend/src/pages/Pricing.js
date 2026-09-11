@@ -5,6 +5,18 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+// Load checkout.js only when the user actually starts an upgrade.
+// The script prefetches many asset chunks in the background, so loading it
+// globally (in index.html) caused constant network traffic on every page.
+const loadRazorpay = () => new Promise((resolve, reject) => {
+  if (window.Razorpay) return resolve();
+  const s = document.createElement('script');
+  s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  s.onload = resolve;
+  s.onerror = () => reject(new Error('Failed to load payment gateway'));
+  document.body.appendChild(s);
+});
+
 const FREE_FEATURES = [
   { text: '30 bills per month',        included: true  },
   { text: '50 customers',              included: true  },
@@ -58,6 +70,7 @@ function Pricing() {
         modal: { ondismiss: () => setLoading(null) }
       };
 
+      await loadRazorpay();
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch {

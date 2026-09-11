@@ -55,7 +55,10 @@ function Customers() {
       else await customerAPI.create(user.uid, formData);
       setShowModal(false);
       loadCustomers();
-    } catch { alert('Error saving customer'); }
+    } catch (e) {
+      console.error('Save customer failed:', e);
+      alert(`Error saving customer${e?.message ? ` — ${e.message}` : ''}`);
+    }
   };
 
   const deleteCustomer = async (id) => {
