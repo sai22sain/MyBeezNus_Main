@@ -97,7 +97,7 @@ function Dashboard() {
           </div>
           <div className="birthday-list">
             {birthdays.map(c => (
-              <div key={c.customer_id} className="birthday-item">
+              <div key={c.id} className="birthday-item">
                 <div>
                   <div className="birthday-name">{c.name}</div>
                   <div className="birthday-mobile">{c.mobile}</div>

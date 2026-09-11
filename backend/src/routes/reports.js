@@ -28,7 +28,7 @@ router.get('/export', requireAuth, async (req, res) => {
       supabase: client,
       uid: req.user.uid,
       table: 'bills',
-      columns: 'bill_number,created_at,customer_name,total_amount,discount,tax,final_amount,payment_mode',
+      columns: 'bill_number,created_at,customer_name,customer_mobile,total_amount,discount,tax,final_amount,payment_mode',
       options: {
         fromDate: startDate,
         toDate: endDate + 'T23:59:59.999Z',
@@ -43,6 +43,7 @@ router.get('/export', requireAuth, async (req, res) => {
       { header: 'Bill Number', key: 'bill_number', width: 15 },
       { header: 'Date', key: 'created_at', width: 20 },
       { header: 'Customer Name', key: 'customer_name', width: 25 },
+      { header: 'Mobile', key: 'customer_mobile', width: 15 },
       { header: 'Subtotal', key: 'total_amount', width: 12 },
       { header: 'Discount', key: 'discount', width: 12 },
       { header: 'Tax', key: 'tax', width: 12 },

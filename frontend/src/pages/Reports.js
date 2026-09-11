@@ -156,7 +156,7 @@ function Reports() {
               ))}
             </div>
             {repeatCustomers.slice(0, 10).map(c => (
-              <div key={c.customer_id} className="loyal-customer-row">
+              <div key={c.id} className="loyal-customer-row">
                 <div>
                   <div className="loyal-customer-name">{c.name}</div>
                   <div className="loyal-customer-mobile">{c.mobile}</div>
