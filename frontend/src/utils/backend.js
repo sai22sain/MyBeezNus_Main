@@ -11,6 +11,13 @@ import { supabase } from '../supabase';
  */
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+// A deployed site can never reach a localhost API (it would point at the
+// *visitor's* machine), so skip instantly instead of wasting a failing
+// request. Local dev (page served from localhost) still attempts normally.
+const isLocal = (url) => /\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url);
+const BACKEND_AVAILABLE =
+  !isLocal(API_URL) || isLocal(window.location.origin);
+
 const getAccessToken = async () => {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token;
@@ -23,7 +30,7 @@ const getAccessToken = async () => {
  */
 const callBackend = async (method, path, payload) => {
   const token = await getAccessToken();
-  if (!token || !process.env.REACT_APP_API_URL) return null;
+  if (!token || !BACKEND_AVAILABLE) return null;
 
   const url = `${API_URL}${path}`;
   const opts = {
