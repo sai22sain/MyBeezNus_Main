@@ -14,6 +14,11 @@ app.use(express.json());
 // Payment routes only - all data is in Firestore
 app.use('/api/payments', require('./src/routes/payments'));
 
+// MyBeezNus backend library routes (Supabase-backed, service-role)
+app.use('/api/numbers', require('./src/routes/numbers'));
+app.use('/api/webhooks', require('./src/routes/webhooks'));
+app.use('/api/reports', require('./src/routes/reports'));
+
 app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'MyBills.in API running' }));
 
 app.listen(PORT, () => console.log(`MyBills.in backend running on port ${PORT}`));

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { reportAPI } from '../utils/firestoreAPI';
 import { useAuth } from '../context/AuthContext';
+import { backendAPI } from '../utils/backend';
 import { formatDateTime } from '../utils/dateFormat';
 
 const rankColors = ['#f59e0b', '#94a3b8', '#b45309', '#6366f1', '#22c55e'];
@@ -15,6 +16,7 @@ function Reports() {
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
   const [showRevenue, setShowRevenue] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => { loadReports(); }, [selectedDate]); // eslint-disable-line
 
@@ -31,6 +33,30 @@ function Reports() {
       setTopItems(topItm);
       setRepeatCustomers(repeat);
     } catch (e) { console.error(e); }
+  };
+
+  const handleExport = async () => {
+    if (!exportStartDate || !exportEndDate) {
+      return alert('Please select both start and end dates');
+    }
+    setExporting(true);
+    try {
+      const blob = await backendAPI.exportRevenue(exportStartDate, exportEndDate);
+      if (!(blob instanceof Blob)) {
+        throw new Error('Backend export unavailable');
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `revenue_report_${exportStartDate}_${exportEndDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Export coming soon! (Backend export endpoint not deployed yet)');
+    }
+    setExporting(false);
   };
 
   const rev = (val) => showRevenue ? `₹${val?.toFixed(0) || 0}` : '₹ ••••';
@@ -168,8 +194,8 @@ function Reports() {
             <label>End Date</label>
             <input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} />
           </div>
-          <button className="btn-export" onClick={() => alert('Export coming soon!')}>
-            <i className="fas fa-download"></i> Export to Excel
+          <button className="btn-export" onClick={handleExport} disabled={exporting}>
+            <i className="fas fa-download"></i> {exporting ? 'Exporting...' : 'Export to Excel'}
           </button>
         </div>
       </div>

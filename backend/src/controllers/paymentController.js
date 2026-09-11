@@ -1,15 +1,11 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const { PLANS, planExpiry } = require('../lib/plans');
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
-
-const PLANS = {
-  pro_monthly: { amount: 9900, currency: 'INR', period: 'monthly', days: 30 },
-  pro_yearly:  { amount: 99900, currency: 'INR', period: 'yearly', days: 365 }
-};
 
 // Create Razorpay order
 const createOrder = async (req, res) => {
@@ -46,16 +42,15 @@ const verifyPayment = (req, res) => {
     }
 
     const planData = PLANS[plan];
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + planData.days * 24 * 60 * 60 * 1000);
+    const { period, startedAt, expiresAt } = planExpiry(plan);
 
     res.json({
       success: true,
       subscription: {
         plan: 'pro',
-        period: planData.period,
-        startedAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        period,
+        startedAt,
+        expiresAt,
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,
         amount: planData.amount / 100
