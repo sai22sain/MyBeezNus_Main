@@ -1,5 +1,17 @@
 import { supabase } from '../supabase';
 import { backendAPI } from './backend';
+import { cachedFetch, invalidate, CACHE_TTL } from './core/cache';
+
+export const cacheKeys = {
+  categories: 'categories',
+  activeItems: 'active_items',
+};
+
+/** Drop cached reference data (call after any item/category mutation). */
+export const invalidateReferenceCache = (uid) => {
+  invalidate(uid, cacheKeys.categories);
+  invalidate(uid, cacheKeys.activeItems);
+};
 
 // Row mappers: DB (snake_case) -> app (camelCase)
 const toCustomer = (r) => r && {
@@ -71,18 +83,20 @@ export const customerAPI = {
     if (error) throw error;
     return toCustomer(data);
   },
-  create: async (uid, data) => {
-    // Fetch the profile prefix and attempt atomic numbering in parallel;
-    // the count-based fallback is derived from whichever wins.
-    const [prefixRes, backendRes] = await Promise.all([
-      supabase
+  create: async (uid, data, opts = {}) => {
+    // Prefix comes from the caller's profile context when provided, so we
+    // don't re-fetch profiles on every create. Fall back to a DB read.
+    let prefix = (opts.customerPrefix || '').toUpperCase();
+    const backendPromise = backendAPI.nextCustomerNumber().catch(() => null);
+    if (!prefix) {
+      const { data: profileRow } = await supabase
         .from('profiles')
         .select('customer_prefix')
         .eq('user_id', uid)
-        .maybeSingle(),
-      backendAPI.nextCustomerNumber().catch(() => null),
-    ]);
-    const prefix = ((prefixRes.data || {}).customer_prefix || 'CUST').toUpperCase();
+        .maybeSingle();
+      prefix = ((profileRow || {}).customer_prefix || 'CUST').toUpperCase();
+    }
+    const backendRes = await backendPromise;
     let customerId = backendRes?.number;
     if (!customerId) {
       const { count } = await supabase
@@ -151,15 +165,13 @@ export const customerAPI = {
 // ─── ITEMS ───────────────────────────────────────────────────
 export const itemAPI = {
   getAll: async (uid) => {
-    const [{ data: items, error: itemsErr }, { data: cats, error: catsErr }] = await Promise.all([
-      supabase.from('items').select('*').eq('user_id', uid),
-      supabase.from('categories').select('*').eq('user_id', uid),
-    ]);
-    if (itemsErr) throw itemsErr;
-    if (catsErr) throw catsErr;
-    const catNames = {};
-    (cats || []).forEach(c => { catNames[c.id] = c.name; });
-    return (items || []).map(r => toItem(r, catNames[r.category_id] || ''));
+    // Categories come from the shared per-user cache (5-min TTL).
+    const cats = await itemAPI.getCategories(uid);
+    const catMap = {};
+    cats.forEach(c => { catMap[c.id] = c.name; });
+    const { data, error } = await supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(r => toItem(r, catMap[r.category_id] || ''));
   },
   getActive: async (uid) => {
     const all = await itemAPI.getAll(uid);
@@ -197,6 +209,7 @@ export const itemAPI = {
       .eq('user_id', uid)
       .eq('id', id);
     if (error) throw error;
+    invalidateReferenceCache(uid);
   },
   toggleStatus: async (uid, id, current) => {
     const { error } = await supabase
@@ -205,15 +218,18 @@ export const itemAPI = {
       .eq('user_id', uid)
       .eq('id', id);
     if (error) throw error;
+    invalidateReferenceCache(uid);
   },
-  getCategories: async (uid) => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', uid);
-    if (error) throw error;
-    return (data || []).map(toCategory);
-  },
+  getCategories: (uid) =>
+    cachedFetch(uid, cacheKeys.categories, CACHE_TTL.categories, async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', uid)
+        .order('name');
+      if (error) throw error;
+      return (data || []).map(toCategory);
+    }),
   createCategory: async (uid, name) => {
     const { data, error } = await supabase
       .from('categories')
@@ -221,6 +237,7 @@ export const itemAPI = {
       .select()
       .single();
     if (error) throw error;
+    invalidateReferenceCache(uid);
     return toCategory(data);
   },
   deleteCategory: async (uid, id) => {
@@ -230,6 +247,7 @@ export const itemAPI = {
       .eq('user_id', uid)
       .eq('id', id);
     if (error) throw error;
+    invalidateReferenceCache(uid);
   }
 };
 
@@ -254,18 +272,19 @@ export const billAPI = {
     if (error) throw error;
     return toBill(data);
   },
-  create: async (uid, data) => {
-    // Fetch the profile prefix and attempt atomic numbering in parallel;
-    // the count-based fallback is derived from whichever wins.
-    const [prefixRes, backendRes] = await Promise.all([
-      supabase
+  create: async (uid, data, opts = {}) => {
+    // Prefix comes from the caller's profile context when provided.
+    let prefix = (opts.billPrefix || '').toUpperCase();
+    const backendPromise = backendAPI.nextBillNumber().catch(() => null);
+    if (!prefix) {
+      const { data: profileRow } = await supabase
         .from('profiles')
         .select('bill_prefix')
         .eq('user_id', uid)
-        .maybeSingle(),
-      backendAPI.nextBillNumber().catch(() => null),
-    ]);
-    const prefix = ((prefixRes.data || {}).bill_prefix || 'BILL').toUpperCase();
+        .maybeSingle();
+      prefix = ((profileRow || {}).bill_prefix || 'BILL').toUpperCase();
+    }
+    const backendRes = await backendPromise;
     let billNumber = backendRes?.number;
     if (!billNumber) {
       const { count } = await supabase

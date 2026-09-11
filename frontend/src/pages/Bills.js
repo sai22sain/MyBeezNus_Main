@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { billAPI, itemAPI } from '../utils/firestoreAPI';
+import { billAPI, itemAPI, cacheKeys } from '../utils/firestoreAPI';
+import { useCachedQuery } from '../hooks/useCachedQuery';
+import { CACHE_TTL } from '../utils/core/cache';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/dateFormat';
 
 function Bills() {
   const { user } = useAuth();
   const [bills, setBills] = useState([]);
-  const [allItems, setAllItems] = useState([]);
+  // Active items shared with Items/NewBill via the per-user cache.
+  const { data: allItems } = useCachedQuery(
+    user?.uid, cacheKeys.activeItems, CACHE_TTL.activeItems,
+    () => itemAPI.getActive(user.uid)
+  );
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBill, setEditingBill] = useState(null);
   const [billItems, setBillItems] = useState([]);
@@ -18,10 +24,9 @@ function Bills() {
   const [endDate, setEndDate] = useState('');
   const [filterMode, setFilterMode] = useState('today');
 
-  useEffect(() => { loadBills(); loadItems(); }, []); // eslint-disable-line
+  useEffect(() => { loadBills(); }, []); // eslint-disable-line
 
   const loadBills = async () => { setBills(await billAPI.getAll(user.uid)); };
-  const loadItems = async () => { setAllItems(await itemAPI.getActive(user.uid)); };
 
   const openEditModal = async (bill) => {
     const data = await billAPI.getById(user.uid, bill.id);

@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { itemAPI } from '../utils/firestoreAPI';
+import { itemAPI, cacheKeys, invalidateReferenceCache } from '../utils/firestoreAPI';
+import { useCachedQuery } from '../hooks/useCachedQuery';
+import { CACHE_TTL } from '../utils/core/cache';
 import { useAuth } from '../context/AuthContext';
 
 function Items() {
   const { user } = useAuth();
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  // Reference data shared with NewBill/Bills via the per-user cache.
+  const { data: items, refresh: refreshItems } = useCachedQuery(
+    user?.uid, cacheKeys.activeItems, CACHE_TTL.activeItems,
+    () => itemAPI.getActive(user.uid)
+  );
+  // Full list (incl. inactive) for the management table below.
+  const [allItems, setAllItems] = useState([]); // eslint-disable-line no-unused-vars
+  const { data: categories, refresh: refreshCategories } = useCachedQuery(
+    user?.uid, cacheKeys.categories, CACHE_TTL.categories,
+    () => itemAPI.getCategories(user.uid)
+  );
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -17,9 +28,10 @@ function Items() {
   useEffect(() => { loadData(); }, []); // eslint-disable-line
 
   const loadData = async () => {
-    const [itemsData, catsData] = await Promise.all([itemAPI.getAll(user.uid), itemAPI.getCategories(user.uid)]);
-    setItems(itemsData);
-    setCategories(catsData);
+    const itemsData = await itemAPI.getAll(user.uid);
+    setAllItems(itemsData);
+    refreshItems();
+    refreshCategories();
   };
 
   const openAddModal = () => {
@@ -38,16 +50,18 @@ function Items() {
     try {
       if (editingItem) await itemAPI.update(user.uid, editingItem.id, formData);
       else await itemAPI.create(user.uid, formData);
+      invalidateReferenceCache(user.uid);
       setShowModal(false);
       loadData();
     } catch { alert('Error saving item'); }
   };
 
-  const toggleStatus = async (item) => { await itemAPI.toggleStatus(user.uid, item.id, item.isActive); loadData(); };
+  const toggleStatus = async (item) => { await itemAPI.toggleStatus(user.uid, item.id, item.isActive); invalidateReferenceCache(user.uid); loadData(); };
 
   const addCategory = async () => {
     if (!newCategory.trim()) return;
     await itemAPI.createCategory(user.uid, newCategory.trim());
+    invalidateReferenceCache(user.uid);
     setShowCategoryModal(false);
     setNewCategory('');
     loadData();
@@ -56,12 +70,14 @@ function Items() {
   const deleteCategory = async (id) => {
     if (!window.confirm('Delete this category?')) return;
     await itemAPI.deleteCategory(user.uid, id);
+    invalidateReferenceCache(user.uid);
     loadData();
   };
 
   const deleteItem = async (id) => {
     if (!window.confirm('Delete this item?')) return;
     await itemAPI.delete(user.uid, id);
+    invalidateReferenceCache(user.uid);
     loadData();
   };
 

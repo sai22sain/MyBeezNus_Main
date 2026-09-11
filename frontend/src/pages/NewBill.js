@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { customerAPI, itemAPI, billAPI } from '../utils/firestoreAPI';
+import React, { useState } from 'react';
+import { customerAPI, billAPI, itemAPI } from '../utils/firestoreAPI';
+import { useCachedQuery } from '../hooks/useCachedQuery';
+import { cacheKeys } from '../utils/firestoreAPI';
+import { CACHE_TTL } from '../utils/core/cache';
 import { useAuth } from '../context/AuthContext';
 import { isPro, FREE_LIMITS } from '../utils/subscription';
 import { useNavigate } from 'react-router-dom';
@@ -7,8 +10,6 @@ import { useNavigate } from 'react-router-dom';
 function NewBill() {
   const { user, profile, subscription } = useAuth();
   const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [itemSearch, setItemSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -23,13 +24,17 @@ function NewBill() {
   const [noCustomerFound, setNoCustomerFound] = useState(false);
   const [customPrice, setCustomPrice] = useState('');
 
-  useEffect(() => { loadData(); }, []); // eslint-disable-line
+  // Reference data served from the shared per-user cache (5-min cats,
+  // 2-min active items). Mutations on other pages invalidate it.
+  const { data: items } = useCachedQuery(
+    user?.uid, cacheKeys.activeItems, CACHE_TTL.activeItems,
+    () => itemAPI.getActive(user.uid)
+  );
+  const { data: categories } = useCachedQuery(
+    user?.uid, cacheKeys.categories, CACHE_TTL.categories,
+    () => itemAPI.getCategories(user.uid)
+  );
 
-  const loadData = async () => {
-    const [itemsData, catsData] = await Promise.all([itemAPI.getActive(user.uid), itemAPI.getCategories(user.uid)]);
-    setItems(itemsData);
-    setCategories(catsData);
-  };
 
   const searchCustomers = async (query) => {
     if (query.length < 3) { setSearchResults([]); setNoCustomerFound(false); return; }
@@ -62,7 +67,9 @@ function NewBill() {
 
   const addNewCustomer = async () => {
     try {
-      const result = await customerAPI.create(user.uid, newCustomer);
+      const result = await customerAPI.create(
+        user.uid, newCustomer, { customerPrefix: profile?.customerPrefix }
+      );
       setSelectedCustomer({ ...newCustomer, id: result.id, customerId: result.customerId });
       setShowCustomerModal(false);
       setMessage({ type: 'success', text: 'Customer added!' });
@@ -93,7 +100,7 @@ function NewBill() {
         customerMobile: selectedCustomer.mobile,
         items: billItems, discount, paymentMode,
         totalAmount: totals.subtotal, tax: totals.tax, finalAmount: totals.finalTotal
-      });
+      }, { billPrefix: profile?.billPrefix });
       const msg = `Hello ${selectedCustomer.name},\n\nThank you for shopping with ${profile?.businessName || 'us'}!\n\nBill No: ${result.billNumber}\nTotal: ₹${totals.finalTotal.toFixed(2)}\nPayment: ${paymentMode}\n\nItems:\n${billItems.map(i => `- ${i.name} x${i.quantity} = ₹${(i.price * i.quantity).toFixed(2)}`).join('\n')}\n\nThank you!`;
       window.open(`https://web.whatsapp.com/send?phone=${selectedCustomer.mobile.replace(/[^0-9]/g, '')}&text=${encodeURIComponent(msg)}`, '_blank');
       setMessage({ type: 'success', text: `Bill ${result.billNumber} created!` });

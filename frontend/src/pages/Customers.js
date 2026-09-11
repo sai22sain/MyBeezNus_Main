@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatDateTime, formatDate } from '../utils/dateFormat';
 
 function Customers() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -52,7 +52,9 @@ function Customers() {
   const handleSubmit = async () => {
     try {
       if (editingCustomer) await customerAPI.update(user.uid, editingCustomer.id, formData);
-      else await customerAPI.create(user.uid, formData);
+      else await customerAPI.create(
+        user.uid, formData, { customerPrefix: profile?.customerPrefix }
+      );
       setShowModal(false);
       loadCustomers();
     } catch (e) {

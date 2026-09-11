@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { getSubscription } from '../utils/subscription';
+import { clearAll as clearReferenceCache } from '../utils/core/cache';
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -65,6 +66,7 @@ export function AuthProvider({ children }) {
       setUser(null);
       setProfileState(null);
       setSubscription({ plan: 'free' });
+      clearReferenceCache();
       return;
     }
     setUser({ uid: sbUser.id, email: sbUser.email, displayName: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || '', photoURL: sbUser.user_metadata?.avatar_url || '' });
@@ -94,7 +96,10 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => supabase.auth.signOut();
+  const logout = () => {
+    clearReferenceCache();
+    return supabase.auth.signOut();
+  };
 
   const refreshSubscription = async () => {
     const sbUser = (await supabase.auth.getUser()).data.user;
