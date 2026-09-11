@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
-package-lock.json
+# NOTE: package-lock.json is intentionally TRACKED so Vercel installs
+# the exact same dependency tree as local (prevents npm 11 resolver drift).
 yarn.lock
 
 # Database

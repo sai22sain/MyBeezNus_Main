@@ -34,10 +34,8 @@
     ]
   },
   "allowScripts": {
-    "@firebase/util": true,
     "core-js": true,
-    "core-js-pure": true,
-    "protobufjs": true
+    "core-js-pure": true
   },
   "engines": {
     "node": "18.x"
