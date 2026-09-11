@@ -73,32 +73,29 @@ export const customerAPI = {
   create: async (uid, data) => {
     // Fetch the profile prefix and attempt atomic numbering in parallel;
     // the count-based fallback is derived from whichever wins.
-    const prefixPromise = supabase
-      .from('profiles')
-      .select('customer_prefix')
-      .eq('user_id', uid)
-      .maybeSingle();
-    const [, backend] = await Promise.all([
-      prefixPromise,
+    const [prefixRes, backendRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('customer_prefix')
+        .eq('user_id', uid)
+        .maybeSingle(),
       backendAPI.nextCustomerNumber().catch(() => null),
-    ]).then(async ([prefixRes, backendRes]) => {
-      const prefix = ((prefixRes?.data || {}).customer_prefix || 'CUST').toUpperCase();
-      let customerId = backendRes?.number;
-      if (!customerId) {
-        const { count } = await supabase
-          .from('customers')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', uid);
-        customerId = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
-      }
-      return { prefix, customerId };
-    });
+    ]);
+    const prefix = ((prefixRes.data || {}).customer_prefix || 'CUST').toUpperCase();
+    let customerId = backendRes?.number;
+    if (!customerId) {
+      const { count } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', uid);
+      customerId = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
+    }
 
     const { data: row, error } = await supabase
       .from('customers')
       .insert({
         user_id: uid,
-        customer_id: backend.customerId,
+        customer_id: customerId,
         name: data.name || '',
         mobile: data.mobile || '',
         dob: data.dob || '',
@@ -107,7 +104,7 @@ export const customerAPI = {
       .select()
       .single();
     if (error) throw error;
-    return { id: row.id, customerId: backend.customerId };
+    return { id: row.id, customerId };
   },
   update: async (uid, id, data) => {
     const { error } = await supabase
@@ -259,26 +256,23 @@ export const billAPI = {
   create: async (uid, data) => {
     // Fetch the profile prefix and attempt atomic numbering in parallel;
     // the count-based fallback is derived from whichever wins.
-    const prefixPromise = supabase
-      .from('profiles')
-      .select('bill_prefix')
-      .eq('user_id', uid)
-      .maybeSingle();
-    const [, billNumber] = await Promise.all([
-      prefixPromise,
+    const [prefixRes, backendRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('bill_prefix')
+        .eq('user_id', uid)
+        .maybeSingle(),
       backendAPI.nextBillNumber().catch(() => null),
-    ]).then(async ([prefixRes, backendRes]) => {
-      const prefix = ((prefixRes?.data || {}).bill_prefix || 'BILL').toUpperCase();
-      let number = backendRes?.number;
-      if (!number) {
-        const { count } = await supabase
-          .from('bills')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', uid);
-        number = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
-      }
-      return number;
-    });
+    ]);
+    const prefix = ((prefixRes.data || {}).bill_prefix || 'BILL').toUpperCase();
+    let billNumber = backendRes?.number;
+    if (!billNumber) {
+      const { count } = await supabase
+        .from('bills')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', uid);
+      billNumber = `${prefix}-${String((count || 0) + 1).padStart(5, '0')}`;
+    }
 
     const { data: row, error } = await supabase
       .from('bills')
