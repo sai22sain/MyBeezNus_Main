@@ -3,12 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@react-oauth/google": "^0.13.5",
     "@supabase/supabase-js": "^2.116.0",
     "axios": "^1.6.0",
-    "firebase": "^12.18.0",
-    "jwt-decode": "^4.0.0",
-    "razorpay": "^2.9.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
@@ -36,5 +32,14 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "allowScripts": {
+    "@firebase/util": true,
+    "core-js": true,
+    "core-js-pure": true,
+    "protobufjs": true
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
