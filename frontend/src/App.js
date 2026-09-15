@@ -11,6 +11,7 @@ import Items from './pages/Items';
 import Reports from './pages/Reports';
 import Pricing from './pages/Pricing';
 import Settings from './pages/Settings';
+import SupportButton from './components/SupportButton';
 import Logo from './components/Logo';
 import './App.css';
 
@@ -153,6 +154,9 @@ function AppShell() {
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
+
+      {/* Floating "Get Assistance" button (all pages, signed-in users) */}
+      <SupportButton />
 
       {/* Mobile bottom tab bar */}
       <nav className="bottom-nav">
