@@ -2707,31 +2707,34 @@ table tr:last-child td {
     font-size: 16px;
   }
 
-/* ─── Support FAB + modal ─────────────────────────────── */
-.support-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 300;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+/* ─── Sidebar "Get Assistance" item ──────────────────── */
+.sidebar-support-link {
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  gap: 11px;
+  padding: 10px 13px;
+  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
 }
-.support-fab:hover {
-  transform: scale(1.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+.sidebar-support-link i {
+  width: 16px;
+  text-align: center;
+}
+.sidebar-support-link:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
+/* Modal overlay sits above everything */
 .support-overlay {
   position: fixed;
   inset: 0;
@@ -2819,17 +2822,6 @@ table tr:last-child td {
   background: rgba(127, 127, 127, 0.12);
   padding: 8px;
   border-radius: 6px;
-}
-
-/* Keep the FAB above the mobile bottom tab bar */
-@media (max-width: 1024px) {
-  .support-fab {
-    bottom: calc(70px + env(safe-area-inset-bottom));
-    right: 16px;
-    width: 48px;
-    height: 48px;
-    font-size: 18px;
-  }
 }
 
   .edit-bill-total-row {

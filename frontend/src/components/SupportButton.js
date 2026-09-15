@@ -12,12 +12,11 @@ const CATEGORIES = [
 ];
 
 /**
- * Floating "Get Help" button + modal. Available on every page so users can
- * reach the admin/support team without going to Settings. Submits to the
- * same /api/support endpoint used by the Settings > Help & Support section.
+ * "Get Assistance" modal, opened from the sidebar Support item.
+ * Controlled component: pass `open` / `onClose`. Submits to the same
+ * /api/support endpoint used by the admin ticket system.
  */
-function SupportButton() {
-  const [open, setOpen] = useState(false);
+function SupportButton({ open, onClose }) {
   const [form, setForm] = useState({ category: 'bug', subject: '', message: '' });
   const [tickets, setTickets] = useState([]);
   const [msg, setMsg] = useState('');
@@ -60,7 +59,7 @@ function SupportButton() {
     setMsg('');
     try {
       await authedFetch('POST', `${API_URL}/api/support`, { app: 'billing', ...form, subject, message });
-      setForm({ category: 'bug', subject: '', message: '' });
+      setForm(p => ({ ...p, subject: '', message: '' }));
       setMsg('Ticket submitted. Our team will get back to you here.');
       await loadTickets();
     } catch (e) {
@@ -70,26 +69,17 @@ function SupportButton() {
     }
   };
 
-  return (
-    <>
-      <button
-        className="support-fab"
-        onClick={() => setOpen(true)}
-        title="Connect with support"
-        aria-label="Get help and support"
-      >
-        <i className="fas fa-headset"></i>
-      </button>
+  if (!open) return null;
 
-      {open && (
-        <div className="support-overlay" onClick={() => setOpen(false)}>
-          <div className="support-modal" onClick={e => e.stopPropagation()}>
+  return (
+    <div className="support-overlay" onClick={onClose}>
+      <div className="support-modal" onClick={e => e.stopPropagation()}>
             <div className="support-modal-header">
               <div>
                 <div className="support-modal-title"><i className="fas fa-headset"></i> Get Assistance</div>
                 <div className="support-modal-sub">Raise a ticket — the admin team will reply here</div>
               </div>
-              <button className="support-modal-close" onClick={() => setOpen(false)} aria-label="Close">×</button>
+              <button className="support-modal-close" onClick={onClose} aria-label="Close">×</button>
             </div>
 
             <div className="support-modal-body">
@@ -147,8 +137,6 @@ function SupportButton() {
             </div>
           </div>
         </div>
-      )}
-    </>
   );
 }
 

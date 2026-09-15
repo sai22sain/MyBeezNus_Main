@@ -42,6 +42,7 @@ const navItems = [
   { to: '/items', icon: 'fa-box', label: 'Items' },
   { to: '/reports', icon: 'fa-chart-bar', label: 'Reports' },
   { to: '/pricing', icon: 'fa-crown', label: 'Upgrade' },
+  { to: '/support', icon: 'fa-headset', label: 'Get Assistance' },
   { to: '/settings', icon: 'fa-cog', label: 'Settings' },
 ];
 
@@ -51,6 +52,7 @@ const bottomTabs = ['/', '/new-bill', '/bills', '/customers', '/settings'];
 function AppShell() {
   const { user, profile, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -76,7 +78,13 @@ function AppShell() {
         </div>
         <div className="sidebar-nav-label">Main Menu</div>
         <ul>
-          {navItems.map(n => (
+          {navItems.map(n => n.to === '/support' ? (
+            <li key={n.to}>
+              <button className="sidebar-support-link" onClick={() => setSupportOpen(true)}>
+                <i className={`fas ${n.icon}`}></i>{n.label}
+              </button>
+            </li>
+          ) : (
             <li key={n.to}><Link to={n.to} data-label={n.label} className={location.pathname === n.to ? 'active' : ''}><i className={`fas ${n.icon}`}></i>{n.label}</Link></li>
           ))}
         </ul>
@@ -119,7 +127,18 @@ function AppShell() {
             </div>
             <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-sidebar-muted)' }}>Menu</div>
             <ul style={{ listStyle: 'none', padding: '0 10px' }}>
-              {navItems.map(n => (
+              {navItems.map(n => n.to === '/support' ? (
+                <li key={n.to} style={{ marginBottom: 2 }}>
+                  <button
+                    className="sidebar-support-link"
+                    onClick={() => { setSupportOpen(true); setDrawerOpen(false); }}
+                    style={{ color: 'var(--color-sidebar-text)', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', borderRadius: 8, background: 'none', border: 'none', width: '100%', cursor: 'pointer' }}
+                  >
+                    <i className={`fas ${n.icon}`} style={{ width: 18, textAlign: 'center', color: '#a5b4fc' }}></i>
+                    {n.label}
+                  </button>
+                </li>
+              ) : (
                 <li key={n.to} style={{ marginBottom: 2 }}>
                   <Link to={n.to} onClick={() => setDrawerOpen(false)}
                     style={{ color: 'var(--color-sidebar-text)', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', borderRadius: 8 }}>
@@ -155,8 +174,8 @@ function AppShell() {
         </Routes>
       </main>
 
-      {/* Floating "Get Assistance" button (all pages, signed-in users) */}
-      <SupportButton />
+      {/* "Get Assistance" modal (opened from sidebar / drawer) */}
+      <SupportButton open={supportOpen} onClose={() => setSupportOpen(false)} />
 
       {/* Mobile bottom tab bar */}
       <nav className="bottom-nav">
