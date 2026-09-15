@@ -45,22 +45,72 @@ router.post('/', async (req, res) => {
 
 /**
  * GET /api/support/mine
- * The caller's own tickets, newest first (status + admin replies included).
+ * The caller's own tickets, newest first (status, admin replies and
+ * follow-up replies included).
  */
 router.get('/mine', async (req, res) => {
   try {
     const { data, error } = await getAdminClient()
       .from('support_tickets')
-      .select('id, app, category, subject, message, status, admin_reply, created_at, updated_at')
+      .select('id, app, category, subject, message, status, admin_reply, created_at, updated_at, ticket_replies(id, sender, message, created_at)')
       .eq('user_id', req.user.uid)
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
 
-    return res.json({ tickets: data || [] });
+    const tickets = (data || []).map(t => ({
+      ...t,
+      replies: Array.isArray(t.ticket_replies)
+        ? t.ticket_replies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        : [],
+      ticket_replies: undefined,
+    }));
+    return res.json({ tickets });
   } catch (err) {
     console.error('[support] list failed:', err);
     return res.status(500).json({ error: 'Could not load your tickets.' });
+  }
+});
+
+/**
+ * POST /api/support/:id/replies
+ * Add a follow-up comment to the caller's own open/in-progress ticket.
+ * Body: { message }
+ */
+router.post('/:id/replies', async (req, res) => {
+  try {
+    const ticketId = String(req.params.id || '');
+    const message = String((req.body || {}).message || '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(ticketId)) {
+      return res.status(400).json({ error: 'Invalid ticket id.' });
+    }
+    if (message.length < 1 || message.length > 4000) {
+      return res.status(400).json({ error: 'Message must be 1-4000 characters.' });
+    }
+
+    // Ticket must belong to the caller and not be closed.
+    const { data: ticket, error: tErr } = await getAdminClient()
+      .from('support_tickets')
+      .select('id, user_id, status')
+      .eq('id', ticketId)
+      .single();
+    if (tErr || !ticket) return res.status(404).json({ error: 'Ticket not found.' });
+    if (ticket.user_id !== req.user.uid) return res.status(403).json({ error: 'Not your ticket.' });
+    if (ticket.status === 'closed') {
+      return res.status(400).json({ error: 'This ticket is closed. Raise a new ticket instead.' });
+    }
+
+    const { data, error } = await getAdminClient()
+      .from('ticket_replies')
+      .insert({ ticket_id: ticketId, user_id: req.user.uid, sender: 'user', message })
+      .select('id, sender, message, created_at')
+      .single();
+    if (error) throw error;
+
+    return res.status(201).json({ reply: data });
+  } catch (err) {
+    console.error('[support] reply failed:', err);
+    return res.status(500).json({ error: 'Could not add your reply. Please try again.' });
   }
 });
 
